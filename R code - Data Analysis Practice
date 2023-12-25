@@ -1,0 +1,141 @@
+---
+title: "Data Analysis Practice"
+author: "Wenshu Diao"
+date: "2023-02-04"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+# read the data from the CSV file
+econ_freedom <- read.csv("~/Desktop/ECON 395/EconomicFreedomCountries.csv", header=TRUE)
+
+# print the data variable (outputs as DataFrame)
+econ_freedom
+```
+
+
+```{r}
+# install other necessary the packages
+install.packages("stargazer") 
+library(stargazer)
+stargazer(econ_freedom)
+
+install.packages("car") 
+library(car)
+
+install.packages("plm") 
+library(plm)
+```
+
+```{r}
+# rename all variables
+econ_freedom <- econ_freedom %>%
+  rename("freedom" = "ECONOMIC.FREEDOM",
+         "gov_cons" = "X1a_government_consumption",
+         "transfers" = "X1b_transfers",
+         "gov_enterprise" = "X1c_gov_enterprises",
+         "tax_rate" = "X1d_top_marg_tax_rate",
+         "size_gov" =  "X1_size_government",
+         "jud_indep" = "X2a_judicial_independence",
+         "imt_courts" = "X2b_impartial_courts",
+         "property_rights" = "X2c_protection_property_rights",
+         "mili_inter" = "X2d_military_interference",
+         "legal_system" = "X2e_integrity_legal_system",
+         "contracts" = "X2f_legal_enforcement_contracts",
+         "sale_prop" = "X2g_restrictions_sale_real_property",
+         "rel_police" = "X2h_reliability_police",
+         "bus_crime" = "X2i_business_costs_crime",
+         "gend_adj" = "X2j_gender_adjustment",
+         "prop_rights" = "X2_property_rights",
+         "money_growth" = "X3a_money_growth",
+         "sd_inflation" = "X3b_std_inflation",
+         "inflation" = "X3c_inflation",
+         "foreign_currency" = "X3d_freedom_own_foreign_currency",
+         "sound_money" = "X3_sound_money",
+         "tariffs" = "X4a_tariffs",
+         "trade_barriers" = "X4b_regulatory_trade_barriers",
+         "black_market" = "X4c_black_market",
+         "control_movement" = "X4d_control_movement_capital_ppl",
+         "trade" = "X4_trade",
+         "credit_market" = "X5a_credit_market_reg",
+         "labor_market" = "X5b_labor_market_reg",   
+         "business_reg" = "X5c_business_reg",
+         "regulation"= "X5_regulation")
+```
+
+```{r}
+# PART 2
+# Simple regression
+linear.1 <- lm(freedom ~ money_growth,data = econ_freedom)
+summary(linear.1)
+ggplot(data = econ_freedom, aes(x = money_growth, y = freedom)) + 
+  geom_point() +
+  stat_smooth() +
+  stat_regline_equation(label.x = 1, label.y = 2)
+```
+
+```{r}
+# Multivariate regression
+linear.2 <- lm(freedom ~ money_growth + gov_cons + transfers + tax_rate  + jud_indep + gend_adj+ foreign_currency + black_market + labor_market, data = econ_freedom)
+summary(linear.2)
+avPlots(linear.2)
+```
+
+```{r}
+# Fixed effects
+linear.3 <- plm(freedom ~ money_growth + gov_cons + transfers + tax_rate  + jud_indep + gend_adj+ foreign_currency + black_market + labor_market, data = econ_freedom, index = c("countries","year"), model="within", effect="individual")
+summary(linear.3)
+```
+
+```{r}
+# Interaction terms
+linear.4 <- plm(freedom ~ money_growth + gov_cons + transfers + tax_rate + jud_indep + gend_adj + foreign_currency + black_market + labor_market + rel_police * black_market, data = econ_freedom, index = c("countries","year"), model="within", effect="individual")
+summary(linear.4)
+```
+
+```{r}
+# collinearity (1)
+linear.5 <- plm(freedom ~ money_growth + gov_cons + transfers + tax_rate  + jud_indep + gend_adj+ foreign_currency + black_market + labor_market + trade, data = econ_freedom, index = c("countries","year"), model="within", effect="individual")
+summary(linear.5)
+```
+
+```{r}
+# collinearity (2)
+linear.6 <- plm(freedom ~ money_growth + gov_cons + transfers + tax_rate + prop_rights + gend_adj+ foreign_currency + black_market + labor_market + trade_barriers, data = econ_freedom, index = c("countries","year"), model="within", effect="individual")
+summary(linear.6)
+```
+
+```{r}
+# log transformation (1)
+linear.7 <- plm(log(freedom) ~ money_growth + gov_cons + transfers + tax_rate  + jud_indep + gend_adj+ foreign_currency + black_market + labor_market, data = econ_freedom, index = c("countries","year"), model="within", effect="individual")
+summary(linear.7)
+```
+
+```{r}
+# log transformation (2)
+linear.8 <- plm(log(freedom) ~ money_growth + gov_cons + log(transfers) + tax_rate + jud_indep + gend_adj + foreign_currency+ black_market + log(labor_market), data = econ_freedom, index = c("countries","year"), model="within", effect="individual")
+summary(linear.8)
+```
+
+```{r}
+# Memo table
+stargazer(linear.1, linear.2, linear.3, linear.4,
+          title = ("Table 1: Regression results with economic freedom"),
+          align = TRUE,
+          type = "text", 
+          column.labels=c("","","FE", "Regulation * Black Market", "collinear(1)", "collinear(2)"),
+          omit.stat=c("LL","ser","f"), 
+          no.space=TRUE,
+          keep.stat = c("n", "rsq"))
+```
+
+```{r}
+stargazer(linear.5, linear.6, linear.7, linear.8,
+          title = ("Table 1: Regression results with economic freedom"),
+          align = TRUE,
+          type = "text", 
+          column.labels=c(),
+          omit.stat=c("LL","ser","f"), 
+          no.space=TRUE,
+          keep.stat = c("n", "rsq"))
+```
