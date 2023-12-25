@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+final project 
+
+@author: diaowenshu
+"""
+
+# Step 0. import libraries
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from pandas.plotting import scatter_matrix
+import seaborn as sns
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.impute import SimpleImputer, KNNImputer
+from sklearn.preprocessing import OneHotEncoder, LabelEncoder, StandardScaler
+from sklearn.linear_model import LinearRegression, Ridge, Lasso
+from sklearn.metrics import accuracy_score, mean_squared_error, r2_score
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+
+
+# Step 1. define Research Goal
+# ==========================================================================
+# Task 1. Objective: The goal of this project is to apply machine learning techniques to predict airline ticket prices using a
+# provided dataset. You will engage in the end-to-end process of predictive modeling, from data preprocessing to model training 
+# and evaluation.
+
+# Task 2. Dataset: The dataset provided contains data of airline ticket prices along with various attributes that may influence 
+# the price, such as departure and arrival locations, dates and times, airline, flight duration, number of stops, etc. There are 
+# 140000 observations in the train set.
+# ==========================================================================
+
+
+# Step 2. Data collection
+# Task 2.1 import the dataset
+train = pd.read_csv('final_train.csv')
+test = pd.read_csv('final_test.csv')
+
+test_id = test['id']
+
+# Step 3. Prepare the data 
+# Task 3.1. we split the training data to train_set and test_set
+train_set, test_set= train_test_split(train, test_size = 0.2, random_state=30)
+
+# Task 3.2. check how many missing values are there for each variable.
+count_missing_train = train_set.isnull().sum().sort_values(ascending = False)
+percent_missing_train = (train_set.isnull().sum() / train_set.isnull().count() * 100).sort_values(ascending = False)
+
+# Task 3.3. define a function to process the data 
+def preprocess(train_set):
+    
+    # Task 3.3.1. drop the segmentsEquipmentDescription
+    train_set.drop('segmentsEquipmentDescription', inplace=True, axis=1)
+    
+    # Task 3.3.2. use mean to replace the totalTravelDistance
+    imputer_mean = SimpleImputer(strategy = "mean")
+    train_set["totalTravelDistance"] = imputer_mean.fit_transform(train_set[['totalTravelDistance']])
+    
+    # Task 3.3.3. use mean to replace the seatsRemaining
+    imputer_mean = SimpleImputer(strategy="mean")
+    train_set["seatsRemaining"] = imputer_mean.fit_transform(train_set[['seatsRemaining']])
+    
+    # Task 3.3.4. convert the flightDate and searchDate to integers
+    train_set['flightDate'] = pd.to_datetime(train_set['flightDate'])
+    train_set['flightDate'] = train_set['flightDate'].dt.strftime('%Y%m%d').astype(int)
+    
+    train_set['searchDate'] = pd.to_datetime(train_set['searchDate'])
+    train_set['searchDate'] = train_set['searchDate'].dt.strftime('%Y%m%d').astype(int)
+    
+    # Task 3.3.5. convert strings to dummy codes
+    train_set = pd.get_dummies(train_set, columns=['startingAirport', 'destinationAirport'])
+    
+    train_set = train_set.select_dtypes(exclude=['object'])
+    
+    return train_set
+    
+# Task 3.4. clean all datasets
+train_set = preprocess(train_set)
+test_set = preprocess(test_set)
+test = preprocess(test)
+
+
+# Task 3.5. get train_labels variable: it is used to train the model to associate images with their 
+# corresponding classes. Once the model has been trained, it can be used to make predictions about the
+# class of new images.
+train_label = train_set['price']
+train_features = train_set.drop('price', axis=1)
+test_label = test_set['price']
+test_features = test_set.drop('price', axis=1)
+
+# Step 4. run regressions
+# I use Gradient Boosting regression. This estimator builds an additive model in a forward stage-wise 
+# fashion; it allows for the optimization of arbitrary differentiable loss functions.
+model = GradientBoostingRegressor(n_estimators=480, random_state=28)
+model.fit(train_features, train_label)
+train_gboost = model.predict(train_features)
+train_gboost = pd.Series(train_gboost)
+mse_train = mean_squared_error(train_label, train_gboost)
+r_sq_train = r2_score(train_label, train_gboost)
+print(f"R squres: {r_sq_train}")
+print(f"The mean squared error: {mse_train}")
+
+# Final Step - Step 4. get result and export dataset
+result = model.predict(test)
+result = pd.Series(result)
+
+final = pd.concat([test_id, result], axis=1)
+final.columns = ['id', 'price']
+final.to_csv('prediction.csv', index=False)
