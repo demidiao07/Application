@@ -1,0 +1,168 @@
+---
+title: "Plan B"
+author: "Wenshu Diao"
+date: "2023-04-15"
+output: html_document
+---
+
+```{r}
+#install.packages("usmap")
+library(usmap) #import the package
+library(ggplot2) #use ggplot2 to add layer for visualization
+library(ggplot2)
+library(maps)
+library(mapdata)
+```
+
+```{r}
+# install.packages("magrittr") # package installations are only needed the first time you use it
+# install.packages("dplyr")    # alternative installation of the %>%
+library(magrittr) # needs to be run every time you start R and want to use %>%
+library(dplyr)
+library(tidyverse)
+library(sf)
+library(plotly)
+```
+
+```{r}
+library(readxl)
+library(tidyverse)
+library(ggplot2)
+library(sf)
+library(ggthemes) 
+```
+
+```{r}
+us_map <- st_read("Desktop/cb_2020_us_state_5m/cb_2020_us_state_5m.shp")
+us_map <- us_map %>%
+  rename(region = NAME)
+data <- mydata %>%
+  left_join(us_map, by = "region") %>%
+  st_sf()
+```
+
+
+```{r}
+FINAL_cleaned_DATA <- read_excel("FINAL, cleaned DATA.xlsx")
+mydata <- FINAL_cleaned_DATA[,-c(6,7)]
+colnames(mydata)[1] = "year"
+colnames(mydata)[2] = "region"
+colnames(mydata)[3] = "plan b law"
+colnames(mydata)[4] = "post 2013"
+colnames(mydata)[5] = "teen_birth_rate"
+colnames(mydata)[6] = "poverty_rate"
+colnames(mydata)[7] = "white percentage"
+colnames(mydata)[8] = "asian percentage"
+colnames(mydata)[9] = "black percentage"
+colnames(mydata)[10] = "hispanic percentage"
+colnames(mydata)[11] = "graduation_rate"
+colnames(mydata)[12] = "unemployment_rate"
+```
+
+```{r}
+colnames(mydata)[1] = "Year"
+colnames(mydata)[2] = "State"
+colnames(mydata)[3] = "Plan B"
+colnames(mydata)[4] = "After 2013"
+colnames(mydata)[5] = "Teen Birth Rate (15-19 years old)"
+colnames(mydata)[6] = "Teen Birth Rate (15-17 years old)"
+colnames(mydata)[7] = "Teen Birth Rate (18-19 years old)"
+colnames(mydata)[8] = "Poverty Rate"
+colnames(mydata)[9] = "White Percentage"
+colnames(mydata)[10] = "Asian Percentage"
+colnames(mydata)[11] = "Black Percentage"
+colnames(mydata)[12] = "Hispanic Percentage"
+colnames(mydata)[13] = "High School Graduation Rate"
+colnames(mydata)[14] = "Unemployment Rate"
+```
+
+```{r}
+mydata <- data %>%
+  filter(year == 2020) 
+mydata <-subset(mydata, region !="Alaska" & region !="Hawaii")
+```
+
+```{r}
+map1 <- ggplot(data = mydata,
+       mapping = aes(fill=teen_birth_rate)) +  
+  geom_sf() +     
+  theme_map() +                          
+  scale_fill_distiller(palette = "Spectral") +
+  theme(legend.position = "bottom") +
+  labs(title="Average Birth Rate for 15-19 years old teens in 2020", size = 16,
+       subtitle = "Averages by State",
+       fill="Teen Birth Rate")
+map1
+```
+
+```{r}
+mydata1 <- mydata[,-c(1,2,3,4)]
+mydata1.cor = cor(mydata1)
+# install.packages("corrplot")
+# install.packages("ggcorrplot")
+library(ggcorrplot)
+ggcorrplot(mydata1.cor, lab = TRUE,type = "lower",
+   outline.col = "white",
+  ggtheme = ggplot2::theme_gray,
+   colors = c("#6D9EC1", "white", "#E46726")) +
+  labs(title = "Correlation Matrix Table")
+```
+
+```{r}
+quartiles <- quantile(mydata$teen_birth_rate, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(mydata$teen_birth_rate)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+data_no_outlier <- subset(mydata,mydata$teen_birth_rate > Lower & mydata$teen_birth_rate< Upper)
+ 
+dim(data_no_outlier)
+```
+
+```{r}
+quartiles <- quantile(data_no_outlier$poverty_rate, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(data_no_outlier$poverty_rate)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+data_no_outlier <- subset(data_no_outlier,data_no_outlier$poverty_rate > Lower & data_no_outlier$poverty_rate< Upper)
+ 
+dim(data_no_outlier)
+```
+
+```{r}
+quartiles <- quantile(data_no_outlier$graduation_rate, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(data_no_outlier$graduation_rate)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+data_no_outlier <- subset(data_no_outlier,data_no_outlier$graduation_rate > Lower & data_no_outlier$graduation_rate< Upper)
+ 
+dim(data_no_outlier)
+```
+
+```{r}
+quartiles <- quantile(data_no_outlier$unemployment_rate, probs=c(.25, .75), na.rm = FALSE)
+IQR <- IQR(data_no_outlier$unemployment_rate)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+data_no_outlier <- subset(data_no_outlier,data_no_outlier$unemployment_rate > Lower & data_no_outlier$unemployment_rate< Upper)
+ 
+dim(data_no_outlier)
+```
+
+```{r}
+data_no_outlier %>%
+  ggplot(aes(x=year, y=teen_birth_rate)) + 
+    geom_boxplot(
+        color="blue",
+        fill="blue",
+        alpha=0.2,
+    )+   xlab("class") +
+    theme(legend.position="none")
+```
