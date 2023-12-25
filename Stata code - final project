@@ -1,0 +1,274 @@
+clear 
+set more off
+cd "/Users/diaowenshu/Desktop/CWRU/ECON 395/"
+capture log close
+log using ps4.log, replace
+
+import excel "/Users/diaowenshu/Desktop/CWRU/ECON 395/FINAL, cleaned DATA1.xlsx", sheet("Data") clear
+
+// Rename Part
+rename A Year
+rename B state
+rename C ID
+rename D Plan_B
+rename E Post 
+rename F TBR_1519
+rename G TBR_1517
+rename H TBR_1819
+rename I Poverty_Rate
+rename J White_Perc
+rename K Asian_Perc
+rename L Black_Perc
+rename M Hispanic_Perc
+rename N acgr
+rename O Unemployment_Rate
+
+//Revise the dataset
+drop if Year == "Year"	
+destring Year, generate(year)
+drop Year
+destring ID, generate(id)
+drop ID
+destring Plan_B, generate(plan_b)
+drop Plan_B
+destring Post, generate(post)
+drop Post
+destring TBR_1519, generate(tbr_1519)
+drop TBR_1519
+destring TBR_1517, generate(tbr_1517)
+drop TBR_1517
+destring TBR_1819, generate(tbr_1819)
+drop TBR_1819
+destring Poverty_Rate, generate(poverty_rate)
+drop Poverty_Rate
+destring White_Perc, generate(white_perc)
+drop White_Perc
+destring Asian_Perc, generate(asian_perc)
+drop Asian_Perc
+destring Black_Perc, generate(black_perc)
+drop Black_Perc
+destring Hispanic_Perc, generate(hispanic_perc)
+drop Hispanic_Perc
+destring acgr, generate(ACGR)
+drop acgr
+destring Unemployment_Rate, generate(unem_rate)
+drop Unemployment_Rate
+
+/* Data Exploration (assignment #1)
+// Descriptive Statistics
+*/
+
+
+// frequency 
+// ssc install asdoc
+asdoc tabulate year, replace 
+asdoc tab plan_b, append
+asdoc tab post, append
+
+// percentile
+summarize plan_b, detail
+summarize post, detail
+summarize tbr_1519, detail
+summarize tbr_1517, detail
+summarize tbr_1819, detail
+summarize poverty_rate, detail
+summarize white_perc, detail
+summarize asian_perc, detail
+summarize black_perc, detail
+summarize hispanic_perc, detail
+summarize ACGR, detail
+summarize unem_rate, detail
+
+// others
+// ssc install estout, replace
+estpost summarize year plan_b post tbr_1519 tbr_1517 tbr_1819 poverty_rate white_perc asian_perc black_perc hispanic_perc ACGR unem_rate
+esttab, cells("count mean sd min max")
+
+//outliers
+graph hbox tbr_1519 
+graph hbox tbr_1517 
+graph hbox tbr_1819
+graph hbox poverty_rate
+graph hbox white_perc
+graph hbox asian_perc
+graph hbox black_perc
+graph hbox hispanic_perc
+graph hbox ACGR
+graph hbox unem_rate
+
+// Part VI correlation
+asdoc pwcorr, star(all) replace
+
+// Part V. Examine your research question through Data Visualization
+// map
+// ssc install maptile
+// ssc install spmap
+// ssc install shp2dta
+// ssc install mif2dta
+use state_coords_clean.dta, clear
+use state_database_clean.dta, clear
+shp2dta using s_08mr23.shp, database(usdb) coordinates(uscoord) genid(id)
+use usdb, clear
+describe
+list id NAME in 1/5
+use stats
+merge 1:1 scode using trans
+drop _merge
+merge 1:1 id using usdb
+drop if _merge!=3
+use stat.dta, clear
+sort id state m
+save stat.dta, replace
+
+////// upload final clear data
+use us.dta, clear
+drop if year != 2013
+merge 1:1 state using stat.dta
+spmap tbr_1519 using uscoord, id(id) cln(5) fcolor(Blues)
+
+/// twoway plot
+use us.dta, clear
+drop if state != "California"
+twoway line tbr_1517 year if plan_b == 0 || line tbr_1819 year || line tbr_1519 year
+line tbr_1517 tbr_1819 tbr_1519 year, legend(size(medsmall))
+
+/// histogram
+use us.dta, clear
+graph bar (mean) poverty_rate, over	(year)
+
+///scatter plot
+drop if year > 2015 | year < 2013
+twoway scatter tbr_1519 ACGR if plan_b == 0 || scatter tbr_1519 ACGR if plan_b == 1, legend(order(1 "Control Group" 2 "Treatment Group")) title("How does teen birth rate change with graduation rate?") subtitle("From 2013 to 2015")
+*/
+
+/* Data Analysis (assignment #2) */
+
+// Hypothesis Test
+// ssc install asdoc
+asdoc ttest tbr_1517 = tbr_1819, replace title(T-test results)
+asdoc ttest tbr_1517 = tbr_1519, rowappend
+asdoc ttest tbr_1819 = tbr_1519, rowappend
+asdoc ttest plan_b == 0, rowappend
+asdoc ttest post == 1, rowappend
+
+ssc install outreg2
+/*
+// Simple Regression 
+reg tbr_1519 plan_b, robust 
+outreg2 using "file_name_here.doc", ctitle("Simple Regression 1") replace
+
+reg tbr_1519 post, robust 
+outreg2 using "file_name_here.doc", ctitle("Simple Regression 2") append
+
+*/
+
+// Multivariate Regression
+reg tbr_1517 plan_b post poverty_rate ACGR unem_rate, robust 
+outreg2 using "file_name_here.doc", ctitle("Multivariate Regression 1") replace
+
+reg tbr_1517 plan_b post poverty_rate ACGR unem_rate white_perc asian_perc black_perc hispanic_perc, robust 
+outreg2 using "file_name_here.doc", ctitle("Multivariate Regression 2") append
+/*
+// log transformation (1)
+gen ln_tbr_1519= ln(tbr_1519)
+reg ln_tbr_1519 plan_b poverty_rate ACGR unem_rate white_perc asian_perc black_perc hispanic_perc, robust 
+outreg2 using "file_name_here.doc", ctitle("Log-linear") append
+
+// log transformation (2)
+gen ln_poverty_rate = ln(poverty_rate)
+gen ln_ACGR = ln(ACGR)
+gen ln_unem_rate = ln(unem_rate)
+reg ln_tbr_1519 plan_b ln_poverty_rate ln_ACGR ln_unem_rate white_perc asian_perc black_perc hispanic_perc, robust 
+outreg2 using "file_name_here.doc", ctitle("Log-log") append
+*/
+
+// Interaction Term (1) 
+gen treatment = plan_b * post
+reg tbr_1517 plan_b post treatment poverty_rate ACGR unem_rate white_perc asian_perc black_perc hispanic_perc, robust 
+outreg2 using "file_name_here.doc", ctitle("Interaction") append
+
+/*
+// Quadratic
+gen ACGR2 = ACGR^2
+gen asian_perc2 = asian_perc^2
+reg tbr_1519 treatment poverty_rate ACGR2 unem_rate white_perc asian_perc2 black_perc hispanic_perc, robust 
+outreg2 using "file_name_here.doc", ctitle("Quadratic") append
+*/
+
+// Fixed Effect
+xtset state year
+encode state, gen (state1)
+reg br tbr_1517 i.state1 i.year
+xtset state1 year
+xtreg tbr_1517 plan_b post treatment poverty_rate ACGR unem_rate white_perc asian_perc black_perc hispanic_perc, fe robust 
+outreg2 using "file_name_here.doc", ctitle("State and Year Fixed Effect") append
+
+xi: reg tbr_1517 plan_b post poverty_rate ACGR unem_rate white_perc asian_perc black_perc hispanic_perc i.state1 i.year
+
+
+xtline tbr_1517
+bysort year: egen tbr_mean1 = mean(tbr_1517)
+twoway scatter tbr_1517 year, msymbol(circle_hollow) || connected tbr_mean1 year, msymbol(diamond) ||, xlabel (2010 (1) 2020)
+
+/*
+// Multicollinear
+reg tbr_1519 tbr_1517 poverty_rate ACGR unem_rate, robust 
+outreg2 using "file_name_here.doc", ctitle("Multicollinear (1)") append
+
+reg tbr_1519 tbr_1819 poverty_rate ACGR unem_rate, robust  
+outreg2 using "file_name_here.doc", ctitle("Multicollinear (2)") append
+*/
+
+// DiD
+reg tbr_1519 plan_b post treatment 
+outreg2 using "file.doc", ctitle("DiD") replace
+
+ssc install diff
+diff tbr_1519, t(plan_b) p(post)
+
+
+*fake treatment
+gen treated = inrange(plan_b,1,.)
+gen post1 = year>=2013
+* basic DiD regression
+reg tbr_1517 i.treated##i.post1
+* now, make the graph
+collapse (mean) tbr_1519, by(year treated)
+twoway (line tbr_1519 year if treated==1) (line tbr_1519 year if treated==0), xline(2013) legend(label(1 Treated) label(2 Control))
+
+collapse (mean) tbr_1517, by(year treated)
+twoway (line tbr_1517 year if treated==1) (line tbr_1517 year if treated==0), xline(2013) legend(label(1 Treated) label(2 Control))
+
+**June 16 2023, just after importing the Excel data (click on the checkmark)
+**id represent state
+**code "i." means fixed effect
+replace plan_b=1 if id==48
+gen treatment=post*plan_b
+**Regression OLS DiD without control variables
+reg tbr_1519 post plan_b treatment i.year i.id 
+outreg2 using "file_name_here.doc", ctitle("Simple Regression") replace
+**Regression OLS DiD with control variables
+reg tbr_1519 post plan_b treatment asian_perc white_perc poverty_rate black_perc hispanic_perc ACGR unem_rate i.year i.id
+outreg2 using "file_name_here.doc", ctitle("Multivariant Regression1") append
+reg tbr_1517 post plan_b treatment asian_perc white_perc poverty_rate black_perc hispanic_perc ACGR unem_rate i.year i.id
+outreg2 using "file_name_here.doc", ctitle("Multivariant Regression2") append
+reg tbr_1819 post plan_b treatment asian_perc white_perc poverty_rate black_perc hispanic_perc ACGR unem_rate i.year i.id
+outreg2 using "file_name_here.doc", ctitle("Multivariant Regression3") append
+**Feasiable Generalized Least Squares
+xtset id year
+xtgls tbr_1519 post plan_b treatment asian_perc white_perc poverty_rate black_perc hispanic_perc ACGR unem_rate i.year i.id, panels(correlated)
+outreg2 using "file_name_here.doc", ctitle("Least Squares") append
+
+**NOW New Mexico is treatment group, and Utah, Colorado, Kansas, Oklahoma, Texas are control groups which are the neigbooring states of New Mexico
+**IDs are New Mexico=32, Arizona=3, Utah=45, Colorado=6, Kansas=17, Oklahoma=37, Texas=44
+
+reg tbr_1517 post plan_b treatment asian_perc white_perc poverty_rate black_perc hispanic_perc ACGR unem_rate i.year i.id if id==3 | id==45| id==6| id==17 | id==37 | id==32
+outreg2 using "file_name_here.doc", ctitle("Multivariant Regression1") replace 
+**including Texas as control
+reg tbr_1517 post plan_b treatment asian_perc white_perc poverty_rate black_perc hispanic_perc ACGR unem_rate i.year i.id  if id==3 | id==45| id==6| id==17 | id==37 | id==32 | id==44
+outreg2 using "file_name_here.doc", ctitle("Multivariant Regression2") append 
+xtset id year
+reg tbr_1517 post plan_b treatment asian_perc white_perc poverty_rate black_perc hispanic_perc ACGR unem_rate i.year i.id  if id==3 | id==45| id==6| id==17 | id==37 | id==32, panels(correlated)
+outreg2 using "file_name_here.doc", ctitle("Least Squares") append
+
+**you could remove 2013, and bigger than 2016
